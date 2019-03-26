@@ -34,8 +34,7 @@ vector<string> splitstr(const char *str, const size_t Size)
             temp += str[i];
         else
         {
-            cout << "error" << endl;
-            exit(1);
+            throw "error";
         }
         i++;
     }
@@ -43,8 +42,7 @@ vector<string> splitstr(const char *str, const size_t Size)
         res.push_back(temp);
     else
     {
-        cout << "error" << endl;
-        exit(1);
+        throw "error";
     }
     return res;
 }
@@ -62,8 +60,7 @@ void reducemins(vector<string> &exp, const size_t Size)
         }
         else
         {
-            cout << "error" << endl;
-            exit(1);
+            throw "error";
         }
     }
     while (it != exp.end())
@@ -109,9 +106,7 @@ void div(vector<string> &exp, const size_t Size, vector<string>::iterator it)
     exp.erase(it - 1);
     if (op2 == 0)
     {
-        cout << "error" << endl;
-        ;
-        exit(1);
+        throw "error";
     }
     exp.insert(it - 1, to_string(op1 / op2));
 }
@@ -136,40 +131,48 @@ void mns(vector<string> &exp, const size_t Size, vector<string>::iterator it)
     exp.insert(it - 1, to_string(op1 - op2));
 }
 
-int calc(vector<string> &exp, const size_t Size)
+int calc(const char *raw, const size_t Size)
 {
-    reducemins(exp, Size);
-    vector<string>::iterator it = exp.begin();
-    while (it != exp.end())
+    try
     {
-        if (*it == "*")
+        vector<string> exp = splitstr(raw, Size);
+        reducemins(exp, exp.size());
+        vector<string>::iterator it = exp.begin();
+        while (it != exp.end())
         {
-            mult(exp, exp.size(), it);
-            continue;
+            if (*it == "*")
+            {
+                mult(exp, exp.size(), it);
+                continue;
+            }
+            else if (*it == "/")
+            {
+                div(exp, exp.size(), it);
+                continue;
+            }
+            it++;
         }
-        else if (*it == "/")
+        it = exp.begin();
+        while (it != exp.end())
         {
-            div(exp, exp.size(), it);
-            continue;
+            if (*it == "+")
+            {
+                pls(exp, exp.size(), it);
+                continue;
+            }
+            else if (*it == "-")
+            {
+                mns(exp, exp.size(), it);
+                continue;
+            }
+            it++;
         }
-        it++;
+        return stoi(exp[0]);
     }
-    it = exp.begin();
-    while (it != exp.end())
+    catch (const char *werr)
     {
-        if (*it == "+")
-        {
-            pls(exp, exp.size(), it);
-            continue;
-        }
-        else if (*it == "-")
-        {
-            mns(exp, exp.size(), it);
-            continue;
-        }
-        it++;
+        throw;
     }
-    return stoi(exp[0]);
 }
 
 int main(int argc, char **argv)
@@ -179,7 +182,14 @@ int main(int argc, char **argv)
         cout << "error" << endl;
         return 1;
     }
-    vector<string> temp = splitstr(argv[1], strlen(argv[1]));
-    cout << calc(temp, temp.size()) << endl;
+    try
+    {
+        cout << calc(argv[1], strlen(argv[1])) << endl;
+    }
+    catch (const char *werr)
+    {
+        cout << werr << endl;
+        return 1;
+    }
     return 0;
 }
