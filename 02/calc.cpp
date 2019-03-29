@@ -7,9 +7,7 @@
 #include <exception>
 #include <stdexcept>
 #include <ios>
-//#include <ctype>
 using namespace std;
-bad_exception exc;
 vector<string> splitstr(const char *str, const size_t Size)
 {
     size_t i = 0;
@@ -39,7 +37,7 @@ vector<string> splitstr(const char *str, const size_t Size)
             temp += str[i];
         else
         {
-            throw exc ;
+            throw invalid_argument("inv_char") ;
         }
         i++;
     }
@@ -47,7 +45,7 @@ vector<string> splitstr(const char *str, const size_t Size)
         res.push_back(temp);
     else
     {
-        throw exc ;
+        throw invalid_argument("inv_char_in_the_end") ;
     }
     return res;
 }
@@ -65,7 +63,7 @@ void reducemins(vector<string> &exp, const size_t Size)
         }
         else
         {
-            throw exc ;
+            throw invalid_argument("err in reducing") ;
         }
     }
     while (it != exp.end())
@@ -111,7 +109,7 @@ void div(vector<string> &exp, const size_t Size, vector<string>::iterator it)
     exp.erase(it - 1);
     if (op2 == 0)
     {
-        throw exc;
+        throw runtime_error("Div by 0");
     }
     exp.insert(it - 1, to_string(op1 / op2));
 }
@@ -174,7 +172,7 @@ int calc(const char *raw, const size_t Size)
         }
         return stoi(exp[0]);
     }
-    catch (bad_exception& exc)
+    catch (exception& exc)
     {
         throw;
     }
@@ -191,7 +189,7 @@ int main(int argc, char **argv)
     {
         cout << calc(argv[1], strlen(argv[1])) << endl;
     }
-    catch (bad_exception& exc)
+    catch (exception& exc)
     {
         cout << "error" << endl;
         return 1;
