@@ -20,18 +20,18 @@ class Matrix
 
       public:
         ProxyClass(int *r, size_t c) : row(r), col(c) {}
-        int &operator[](int n)
+        int &operator[](int n) const
         {
-            if ((size_t)n > col)
+            if ((size_t)n >= col)
                 throw out_of_range("");
             return (row[n]);
         }
-        /*const int &operator[](int n)
+        int &operator[](int n)
         {
-            if ((size_t)n > col)
+            if ((size_t)n >= col)
                 throw out_of_range("");
             return (row[n]);
-        }*/
+        }
     };
 
   public:
@@ -39,16 +39,27 @@ class Matrix
     {
         mat = new int*[rows];
         for (size_t i = 0; i < rows; i++)
+        {
             mat[i] = new int[cols];
+            for (size_t j = 0; j < cols; j++)
+            mat[i][j]=0;
+        }    
     }
     ~Matrix()
     {
-        for (size_t i; i < rows; i++)
-            delete[] mat[i];
+        /*for (size_t i; i < rows; i++)
+            delete[] mat[i];*/
         delete[] mat;
     }
     const int getRows() { return rows; }
     const int getColumns() { return cols; }
+    ProxyClass operator[](int n) const
+    {
+        if ((size_t)n >= rows)
+            throw out_of_range("");
+        ProxyClass temp(mat[n], cols);
+        return temp;
+    }
     ProxyClass operator[](int n)
     {
         if ((size_t)n >= rows)
@@ -74,13 +85,9 @@ class Matrix
     }
     const bool operator!=(Matrix m1)
     {
+        if ((m1.rows != rows) || (m1.cols != cols))
+            return true;
+        else    
         return !(*this==m1);
     }
-    /*const ProxyClass operator[](int n)
-    {
-        if ((size_t)n >= rows)
-            throw out_of_range("");
-        ProxyClass temp(mat[n], cols);
-        return temp;
-    }*/
 };
