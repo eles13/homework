@@ -84,10 +84,7 @@ class Matrix
         return true;
     }
     const bool operator!=(Matrix m1)
-    {
-        if ((m1.rows != rows) || (m1.cols != cols))
-            return true;
-        else    
+    {   
         return !(*this==m1);
     }
 };
