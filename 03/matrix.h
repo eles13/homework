@@ -20,7 +20,7 @@ class Matrix
 
       public:
         ProxyClass(int *r, size_t c) : row(r), col(c) {}
-        int &operator[](int n) const
+        int operator[](int n) const
         {
             if ((size_t)n >= col)
                 throw out_of_range("");
@@ -28,7 +28,7 @@ class Matrix
         }
         int &operator[](int n)
         {
-            if ((size_t)n >= col)
+            if (((size_t)n >= col)||((size_t)n<0))
                 throw out_of_range("");
             return (row[n]);
         }
@@ -47,12 +47,11 @@ class Matrix
     }
     ~Matrix()
     {
-        /*for (size_t i; i < rows; i++)
-            delete[] mat[i];*/
-        delete[] mat;
+        for (size_t i = 0; i < rows; i++)
+            delete mat[i];
     }
-    const int getRows() { return rows; }
-    const int getColumns() { return cols; }
+    const size_t getRows() { return rows; }
+    const size_t getColumns() { return cols; }
     ProxyClass operator[](int n) const
     {
         if ((size_t)n >= rows)
@@ -62,16 +61,17 @@ class Matrix
     }
     ProxyClass operator[](int n)
     {
-        if ((size_t)n >= rows)
+        if (((size_t)n >= rows)||((size_t)n<0))
             throw out_of_range("");
         ProxyClass temp(mat[n], cols);
         return temp;
     }
-    void operator*=(const int &m2)
+    Matrix& operator*=(const int m2)
     {
         for (size_t i = 0; i < rows; i++)
             for (size_t j = 0; j < cols; j++)
                 mat[i][j] *= m2;
+        return *this;        
     }
     const bool operator==(Matrix m1)
     {
