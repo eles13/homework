@@ -31,37 +31,30 @@ class Serializer
     template <class... ArgsT>
     Error operator()(ArgsT... args)
     {
-        return process(args...);
+        return process(forward<ArgsT>(args)...);
     }
 
   private:
     template <class T>
-    Error process(T &&val)
+    Error pushit(T &val)
     {
-        if (*(typeid(T).name()) == 'b')
-        {
-            out_ << (val == true ? "true" : "false");
-        }
-        else if (*(typeid(T).name()) == 'm')
-        {
-            out_ << val;
-        }
+        if (is_same<T, bool>::value)
+            out_ << (val == true ? "true" : "false") << Separator;
+        else if (is_same<T, uint64_t>::value)
+            out_ << val << Separator;
         else
             return Error::CorruptedArchive;
         return Error::NoError;
     }
+    template <class T>
+    Error process(T &&val)
+    {
+        return pushit(val);
+    }
     template <class T, class... Args>
     Error process(T &&val, Args &&... args)
     {
-        if (*(typeid(T).name()) == 'b')
-        {
-            out_ << (val == true ? "true" : "false") << Separator;
-        }
-        else if (*(typeid(T).name()) == 'm')
-        {
-            out_ << val << Separator;
-        }
-        else
+        if (pushit(val) == Error::CorruptedArchive)
             return Error::CorruptedArchive;
         return process(forward<Args>(args)...);
     }
@@ -94,13 +87,16 @@ class Deserializer
   private:
     // process использует variadic templates
     template <class T>
-    Error process(T &&val)
+    Error popit(T &val)
     {
         string s;
         in_ >> s;
         if (s == "")
             return Error::CorruptedArchive;
-        if (checkBool(val))
+        // cout<<"type bool "<<is_same<T,bool>::value<<endl;
+        // cout<<"type int "<<is_same<T,uint64_t>::value<<endl;
+        // cout<<s<<endl;
+        if (is_same<T, bool>::value)
         {
             if ((s == "true") || (s == "false"))
             {
@@ -108,63 +104,33 @@ class Deserializer
                 return Error::NoError;
             }
         }
-        else if (checkType(val))
+        else if (is_same<T, uint64_t>::value)
         {
-            stringstream st(s);
-            if (s.rfind("-", 0) == 0)
+            if (s[0] == '-')
                 return Error::CorruptedArchive;
-            st >> val;
+            try
+            {
+                val = stoull(s);
+            }
+            catch (invalid_argument &ex)
+            {
+                return Error::CorruptedArchive;
+            }
             return Error::NoError;
         }
         return Error::CorruptedArchive;
+    }
+    template <class T>
+    Error process(T &&val)
+    {
+        return popit(val);
     }
 
     template <class T, class... Args>
     Error process(T &&val, Args &&... args)
     {
-        string s;
-        in_ >> s;
-        if (s == "")
+        if (popit(val) == Error::CorruptedArchive)
             return Error::CorruptedArchive;
-        if (checkBool(val))
-        {
-            if ((s == "true") || (s == "false"))
-            {
-                val = (s == "true" ? true : false);
-            }
-            else
-            {
-                return Error::CorruptedArchive;
-            }
-        }
-        else if (checkType(val))
-        {
-            stringstream st(s);
-            st >> val;
-        }
-        else
-        {
-            return Error::CorruptedArchive;
-        }
         return process(forward<Args>(args)...);
-    }
-
-  public:
-    template <typename T>
-    bool checkType(T &val)
-    {
-        if (is_same<uint64_t, T>::value)
-            return true;
-        else
-            return false;
-    }
-
-    template <typename T>
-    bool checkBool(T &val)
-    {
-        if (is_same<bool, T>::value)
-            return true;
-        else
-            return false;
     }
 };
