@@ -36,7 +36,7 @@ class Serializer
 
   private:
     template <class T>
-    Error pushit(T &val)
+    Error pushit(T val)
     {
         if (is_same<T, bool>::value)
             out_ << (val == true ? "true" : "false") << Separator;
