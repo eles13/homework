@@ -47,12 +47,12 @@ class Serializer
         return Error::NoError;
     }
     template <class T>
-    Error process(T &&val)
+    Error process(T &val)
     {
         return pushit(val);
     }
     template <class T, class... Args>
-    Error process(T &&val, Args &&... args)
+    Error process(T &val, Args &&... args)
     {
         if (pushit(val) == Error::CorruptedArchive)
             return Error::CorruptedArchive;
@@ -121,13 +121,13 @@ class Deserializer
         return Error::CorruptedArchive;
     }
     template <class T>
-    Error process(T &&val)
+    Error process(T &val)
     {
         return popit(val);
     }
 
     template <class T, class... Args>
-    Error process(T &&val, Args &&... args)
+    Error process(T &val, Args &&... args)
     {
         if (popit(val) == Error::CorruptedArchive)
             return Error::CorruptedArchive;
