@@ -7,29 +7,28 @@
 #include <vector>
 #include <deque>
 #include <condition_variable>
+#include <exception>
+#include <atomic>
 using namespace std;
 const int N = 1000000;
-mutex mut;
-bool processing = true;
-condition_variable cond;
-bool notified = false;
+atomic<int> state{0};
 void mergef(const char *file1, const char *file2)
 {
-    unique_lock<mutex> lock(mut);
     while (true)
     {
-        while (!notified)
-        {
-            cond.wait(lock);
-            if (!processing) return;
-        }    
+        if (state == 0) continue;
+        if(state<0) return;
         deque<uint64_t> dfile2;
         uint64_t buf1;
         bool pres1 = false;
         uint64_t buf2;
         bool pres2 = false;
-        ifstream f1(file1,ios::binary);
-        ifstream f2(file2,ios::binary);
+        ifstream f1;
+        f1.open(file1,ios::binary);
+        if (!f1.good()) throw invalid_argument("");
+        ifstream f2;
+        f2.open(file2,ios::binary);
+        if (!f2.good()) throw invalid_argument("");
         uint64_t temp;
         while (!f2.eof())
         {
@@ -38,7 +37,9 @@ void mergef(const char *file1, const char *file2)
             dfile2.push_back(temp);
         }
         f2.close();
-        ofstream res(file2, ios::trunc|ios::binary);
+        ofstream res;
+        res.open(file2, ios::trunc|ios::binary);
+        if (!res.good()) throw invalid_argument("");
         while (!f1.eof() && !f2.eof())
         {
             if (!pres1)
@@ -87,26 +88,25 @@ void mergef(const char *file1, const char *file2)
         res.close();
         remove(file1);
         rename(file2, file1);
-        notified = false;
-        cond.notify_one();
+        state = 0;
     }
 }
 
 void readf(const char * filename)
 {
-    ifstream file(filename, ios::binary);
+    ifstream file;
+    file.open(filename, ios::binary);
+    if (!file.good()) throw invalid_argument("");
     vector<uint64_t>nums;
     size_t wasread;
     uint64_t temp;
-    unique_lock<mutex> lock(mut);
     while (true)
-    {
-        while (notified)
-            cond.wait(lock);
+    {   
+        if (state == 1) continue;
         if (file.eof())
         {
             processing = false;
-            cond.notify_one();
+            state = -1;
             break;
         }
         ofstream ofile("temp.dat", ios::trunc|ios::binary);
@@ -122,19 +122,23 @@ void readf(const char * filename)
         }
         nums.clear();
         ofile.close();
-        notified = true;
-        cond.notify_one();
+        state = 1;
     }
     file.close();
 }
 
 int main(int argc, char **argv)
 {
-    if (argc != 2)
-        throw "no proper file";
-    thread t1(readf, argv[1]);
-    thread t2(mergef,"res.dat", "temp.dat");
-    t1.join();
-    t2.join();
+    try
+    {
+        thread t1(readf, "numbers.dat");
+        thread t2(mergef,"res.dat", "temp.dat");
+        t1.join();
+        t2.join();
+    }
+    catch(invalid_argument& ex)
+    {
+        cout<<"file hasn't opened"<<endl;
+    }
     return 0;
 }
