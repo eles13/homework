@@ -138,7 +138,7 @@ int main(int argc, char **argv)
     }
     catch(invalid_argument& ex)
     {
-        cout<<"file hasn't opened"<<endl;
+        cout<<"file hasn't been opened"<<endl;
     }
     return 0;
 }
