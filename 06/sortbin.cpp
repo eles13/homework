@@ -109,7 +109,9 @@ void readf(const char * filename)
             state = -1;
             break;
         }
-        ofstream ofile("temp.dat", ios::trunc|ios::binary);
+        ofstream ofile;
+        ofile.open("temp.dat", ios::trunc|ios::binary);
+        if (!ofile.good()) throw invaild_argument("");
         for (wasread = 0;wasread<N-2 && !file.eof();wasread++)
         {
             file.read((char*)&temp,sizeof(temp));
