@@ -10,9 +10,7 @@
 #include <exception>
 #include <atomic>
 using namespace std;
-const int N = 1000000;
-atomic<int> state{0};
-void mergef(const char *file1, const char *file2)
+void mergef(const char *file1, const char *file2, atomic<int>& state)
 {
     while (true)
     {
@@ -25,10 +23,20 @@ void mergef(const char *file1, const char *file2)
         bool pres2 = false;
         ifstream f1;
         f1.open(file1,ios::binary);
-        if (!f1.good()) throw invalid_argument("");
+        if (!f1.good()) 
+        {
+            state = -1;
+            cout<<"cannot open "<<file1<<endl;
+            return;
+        }
         ifstream f2;
         f2.open(file2,ios::binary);
-        if (!f2.good()) throw invalid_argument("");
+        if (!f2.good()) 
+        {
+            state = -1;
+            cout<<" cannot open "<<file2<<endl;
+            return;
+        }
         uint64_t temp;
         while (!f2.eof())
         {
@@ -39,7 +47,12 @@ void mergef(const char *file1, const char *file2)
         f2.close();
         ofstream res;
         res.open(file2, ios::trunc|ios::binary);
-        if (!res.good()) throw invalid_argument("");
+        if (!res.good()) 
+        {
+            state = -1;
+            cout<<"cannot open "<<file2<<endl;
+            return;
+        }
         while (!f1.eof() && !f2.eof())
         {
             if (!pres1)
@@ -92,11 +105,17 @@ void mergef(const char *file1, const char *file2)
     }
 }
 
-void readf(const char * filename)
+void readf(const char * filename, atomic<int>& state)
 {
+    const int N = 1000000;
     ifstream file;
     file.open(filename, ios::binary);
-    if (!file.good()) throw invalid_argument("");
+    if (!file.good())
+    {
+        state = -1;
+        cout<<"cannot open "<<filename<<endl;
+        return;
+    }
     vector<uint64_t>nums;
     size_t wasread;
     uint64_t temp;
@@ -105,13 +124,17 @@ void readf(const char * filename)
         if (state == 1) continue;
         if (file.eof())
         {
-            processing = false;
             state = -1;
             break;
         }
         ofstream ofile;
         ofile.open("temp.dat", ios::trunc|ios::binary);
-        if (!ofile.good()) throw invaild_argument("");
+        if (!ofile.good() || state == -1)
+        {
+            state = -1;
+            cout<<"cannot open temp.dat"<<endl;
+            return;
+        }
         for (wasread = 0;wasread<N-2 && !file.eof();wasread++)
         {
             file.read((char*)&temp,sizeof(temp));
@@ -131,16 +154,10 @@ void readf(const char * filename)
 
 int main(int argc, char **argv)
 {
-    try
-    {
-        thread t1(readf, "numbers.dat");
-        thread t2(mergef,"res.dat", "temp.dat");
-        t1.join();
-        t2.join();
-    }
-    catch(invalid_argument& ex)
-    {
-        cout<<"file hasn't been opened"<<endl;
-    }
+    atomic<int> state{0};
+    thread t1(readf, "numbers.dat",ref(state));
+    thread t2(mergef,"res.dat", "temp.dat",ref(state));
+    t1.join();
+    t2.join();
     return 0;
 }
