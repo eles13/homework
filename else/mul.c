@@ -23,6 +23,8 @@ int main(int argc, char** argv)
     int32_t** m32b = (int32_t**)calloc(sizeof(int32_t*), sizeb);
     int64_t** m64a = (int64_t**)calloc(sizeof(int64_t*),sizea);
     int64_t** m64b = (int64_t**)calloc(sizeof(int64_t*),sizeb);
+    int32_t** m32c = (int32_t**)calloc(sizeof(int32_t*), sizea);
+    int64_t** m64c = (int64_t**)calloc(sizeof(int64_t*),sizea);
     int mode32 = 0;
     if (ca == 'd')
     {
@@ -30,10 +32,12 @@ int main(int argc, char** argv)
         {
             m32a[i] = (int32_t*)calloc(sizeof(int32_t),sizea);
             m32b[i] = (int32_t*)calloc(sizeof(int32_t),sizeb);
+            m32c[i] = (int32_t*)calloc(sizeof(int32_t),sizeb);
             for (int32_t j = 0; j<sizea; j++)
             {
                 fread(&m32a[i][j],sizeof(int32_t),1,fina);
                 fread(&m32b[i][j],sizeof(int32_t),1,finb);
+                m32c[i][j] = 0;
             }
         }
         mode32 = 1;
@@ -44,28 +48,34 @@ int main(int argc, char** argv)
         {
             m64a[i] = (int64_t*)calloc(sizeof(int64_t),sizea);
             m64b[i] = (int64_t*)calloc(sizeof(int64_t),sizeb);
+            m64c[i] = (int64_t*)calloc(sizeof(int64_t),sizea);
             for (int32_t j = 0; j<sizea; j++)
             {
                 fread(&m64a[i][j],sizeof(int64_t),1,fina);
                 fread(&m64b[i][j],sizeof(int64_t),1,finb);
+                m64c[i][j] = 0;
             }
         }
     }
     if (mode32){};
-
+    fclose(fina);
+    fclose(finb);
     #if mode32
         #define A m32a
         #define B m32b
         #define C m32c
         #define type int32_t
-        int32_t** m32c = (int32_t**)calloc(sizeof(int32_t*),sizea);
     #else
         #define A m64a
         #define B m64b
         #define C m64c
         #define type int64_t
-        int64_t** m64c = (int64_t**)calloc(sizeof(int64_t*),sizea);
     #endif
+    // type** C = (type**)calloc(sizeof(type*),sizea);
+    // for (int32_t i = 0; i<sizea; i++)
+    // {
+    //     type* C[i] = (type*)calloc(sizea, sizeof(type));
+    // }
     switch ((int)argv[4][0]) 
     {
         case 0:
@@ -124,7 +134,42 @@ int main(int argc, char** argv)
             }
             break;   
         }
+        case 2:
+        {
+            for(int32_t k = 0; k<sizea; k++)
+            {
+                for(int32_t i = 0; i<sizea; i++)
+                {
+                   for(int32_t j = 0; j<sizea; j++)
+                   {
+                            C[i][j]+=A[i][k]*B[k][j];
+                   }
+                }
+            }
+            break;
+        }
+        case 5:
+        {
+            for(int32_t k=0; k<sizea; k++)
+            {
+                for(int32_t j=0; j<sizea; j++)
+                {
+                    for(int32_t i=0; i<sizea; i++)
+                        C[i][j]+=A[i][k]*B[k][j];
+                }
+            }
+            break;
+        }
     }
+    FILE* fout = fopen(argv[3],"wb+");
+    fwrite(&sizea, sizeof(int32_t),1,fout);
+    fwrite(&ca, sizeof(char),1,fout);
+    for (int32_t i = 0; i< sizea; i++)
+    {
+        for (int32_t j = 0; j<sizea; j++)
+            fwrite(&C[i][j],sizeof(type),1,fout);
+    }
+    fclose(fout);
     for (int32_t i = 0; i< sizea; i++)
     {
         free(C[i]);
