@@ -51,6 +51,7 @@ int main(int argc, char** argv)
             }
         }
     }
+    if (mode32){};
 
     #if mode32
         #define A m32a
