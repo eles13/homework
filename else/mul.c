@@ -57,6 +57,7 @@ int main(int argc, char** argv)
             }
         }
     }
+
     if (mode32){};
     fclose(fina);
     fclose(finb);
@@ -71,24 +72,20 @@ int main(int argc, char** argv)
         #define C m64c
         #define type int64_t
     #endif
-    // type** C = (type**)calloc(sizeof(type*),sizea);
-    // for (int32_t i = 0; i<sizea; i++)
-    // {
-    //     type* C[i] = (type*)calloc(sizea, sizeof(type));
-    // }
-    switch ((int)argv[4][0]) 
+    int mode = (int)argv[4][0] - (int)'0'; 
+    switch (mode) 
     {
         case 0:
         {
             for(int32_t i = 0; i<sizea; i++)
-            { 
+            {    
                 for (int32_t j = 0; j<sizea; j++)
                 {
                     C[i][j]=0;
                     for (int32_t k = 0; k<sizea; k++)
                     {
                         C[i][j]+=A[i][k]*B[k][j];
-                    }                    
+                    }                  
                 }
             }
             break;
@@ -162,12 +159,12 @@ int main(int argc, char** argv)
         }
     }
     FILE* fout = fopen(argv[3],"wb+");
-    fwrite(&sizea, sizeof(int32_t),1,fout);
     fwrite(&ca, sizeof(char),1,fout);
+    fwrite(&sizea, sizeof(int32_t),1,fout);
     for (int32_t i = 0; i< sizea; i++)
     {
         for (int32_t j = 0; j<sizea; j++)
-            fwrite(&C[i][j],sizeof(type),1,fout);
+            fwrite(&C[i][j],sizeof(int64_t),1,fout);
     }
     fclose(fout);
     for (int32_t i = 0; i< sizea; i++)
@@ -182,5 +179,6 @@ int main(int argc, char** argv)
     free(m32b);
     free(m64a);
     free(m64b);
-    free(C);
+    free(m32c);
+    free(m64c);
 }
