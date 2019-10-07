@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <vector>
 #include <cmath>
+#include <memory>
 
 using namespace std;
 
@@ -23,8 +24,8 @@ class Calc
     Calc(const string s): f(s) {}
     void setexpr(const string s)
     {
-		f = s;
-	}
+		    f = s;
+	  }
     double number()
     {
         int res = 0;
@@ -109,7 +110,6 @@ class Matrix
 protected:
     size_t size;
     double **mat;
-    int *rows;
     bool islu;
     class ProxyClass
     {
@@ -133,6 +133,7 @@ protected:
     };
 
 public:
+    size_t* order;
     Matrix() : size(0) {}
     Matrix(size_t s) : size(s)
     {
@@ -146,14 +147,16 @@ public:
             }
         }
         islu = false;
-        rows = new int[size];
+        order = new size_t[size];
+        for (size_t i = 0; i<size; i++)
+          order[i] = i;
     }
     ~Matrix()
     {
         for (size_t i = 0; i < size; i++)
             delete[] mat[i];
         delete[] mat;
-        delete[] rows;
+        delete[] order;
     }
     const size_t getSize() { return size; }
     ProxyClass operator[](size_t n) const
@@ -252,28 +255,47 @@ public:
 
     Matrix &lu()
     {
-        Matrix L(size);
 
-        for (size_t i = 0; i < size; i++)
-            for (size_t j = i; j < size; j++)
-                L[j][i] = mat[j][i] / mat[i][i]; //mb 0 requires maintenance
-
-        for (size_t k = 1; k < size; k++)
+        double max = mat[0][0];
+        size_t index = 0;
+        for (size_t i = 1; i < size; i++)
         {
-            for (size_t i = k - 1; i < size; i++)
-                for (size_t j = i; j < size; j++)
-                    L[j][i] = mat[j][i] / mat[i][i];
-
-            for (size_t i = k; i < size; i++)
-                for (size_t j = k - 1; j < size; j++)
-                    mat[i][j] = mat[i][j] - L[i][k - 1] * mat[k - 1][j];
+          if (abs(mat[i][0]) > abs(max))
+          {
+            max = mat[i][0];
+            index = i;
+          }
         }
-        for (size_t i = 0; i < size; i++)
-            for (size_t j = 0; j < size; j++)
-                if (i > j)
-                {
-                    mat[i][j] = L[i][j];
-                }
+        order = new size_t[size];
+        for (size_t i = 0; i<size; i++)
+          order[i] = i;
+        order[0] = index;
+        order[index] = 0;
+        for (size_t j = 0; j < size; j++)
+        {
+          for (size_t k = j + 1; k < size; k++)
+          {
+            for (size_t i = 0; i < j; i++)
+                mat[order[j]][k] -= mat[order[j]][i] * mat[order[i]][k];
+            mat[order[j]][k] /= max;
+          }
+          for (size_t k = j + 1; k < size; k++)
+            for (size_t i = 0; i < j + 1; i++)
+                mat[order[k]][j + 1] -= mat[order[k]][i] * mat[order[i]][j+1];
+          if (j != size-1)
+            max = mat[order[j + 1]][j + 1];
+          index = j + 1;
+          for (size_t i = j + 2; i < size; i++)
+          {
+            if (abs(mat[order[i]][j + 1]) > abs(max))
+            {
+                max = mat[order[i]][j + 1];
+                index = i;
+            }
+          }
+          if (j != size - 1)
+            swap(order[j + 1], order[index]);
+        }
         islu = true;
         return *this;
     }
@@ -294,7 +316,7 @@ public:
                     maxl = i;
                 }
             }
-            if (maxl != k) 
+            if (maxl != k)
             {
                 det = det * (-1);
                 for (size_t j = 0; j < size; j++)
@@ -311,7 +333,7 @@ public:
                     del = temp[i][k] / temp[k][k];
                     for (size_t j = 0; j < size; j++)
                     {
-                        temp[i][j] = temp[i][j] - del * temp[k][j]; 
+                        temp[i][j] = temp[i][j] - del * temp[k][j];
                     }
                 }
             }
@@ -333,12 +355,12 @@ public:
     Matrix &inverse()
     {
 		double det = 1;
-        if (islu)
-        {
-			for (size_t i = 0; i< size; i++)
-				det*=mat[i][i];
+    if (islu)
+    {
+		    for (size_t i = 0; i< size; i++)
+		    det*=mat[i][i];
 		}
-		else 
+		else
 			det = this->det();
         if (det == 0.0)
             throw "Null determinant!";
@@ -346,10 +368,10 @@ public:
         {
             Matrix unit(size);
             for (size_t i = 0; i < size; i++)
-                unit[i][i] = 1; 
+                unit[i][i] = 1;
             double fact;
             for (size_t k = 0; k < size; k++)
-            { 
+            {
                 for (size_t j = k + 1; j < size; j++)
                 {
                     if (mat[k][k] != 0.0)
@@ -362,23 +384,23 @@ public:
                         {
                             if (mat[p][k] != 0.0)
                             {
-                                ln_change(k, p);  
-                                unit.ln_change(k, p); 
+                                ln_change(k, p);
+                                unit.ln_change(k, p);
                             }
                         }
                         fact = mat[j][k] / mat[k][k];
                     }
                     for (size_t i = 0; i < size; i++)
-                    { 
+                    {
                         mat[j][i] = mat[j][i] - mat[k][i] * fact;
                         unit[j][i] = unit[j][i] - unit[k][i] * fact;
                     }
                 }
             }
             for (size_t k = size - 1; k > 0; k--)
-            { 
+            {
                 for (int j = k - 1; j >= 0; j--)
-                { 
+                {
                     if (mat[k][k] != 0.0)
                     {
                         fact = mat[j][k] / mat[k][k];
@@ -389,8 +411,8 @@ public:
                         {
                             if (mat[p][k] != 0.0)
                             {
-                                ln_change(k, p);      
-                                unit.ln_change(k, p); 
+                                ln_change(k, p);
+                                unit.ln_change(k, p);
                             }
                         }
                         fact = mat[j][k] / mat[k][k];
@@ -403,7 +425,7 @@ public:
                 }
             }
             for (size_t i = 0; i < size; i++)
-            { 
+            {
                 for (size_t j = 0; j < size; j++)
                 {
                     unit[i][j] /= mat[i][i];
@@ -438,61 +460,104 @@ const Matrix readfile(size_t &size, vector<double> &b)
 
 const vector<double> solution(const vector<double> &b, const Matrix &A, const size_t size)
 {
-    Matrix L(size);
-    Matrix U(size);
-    //cout<<A.out();
-    U = A;
-    for (size_t i = 0; i < size; i++)
-    {
-        for (size_t j = 0; j < size; j++)
-        {
-            if (i > j)
-            {
-                L[i][j] = U[i][j];
-                U[i][j] = 0;
-            }
-        }
-        L[i][i] = 1;
-    }
-    L = U.inverse() * L.inverse();
-    
-    vector<double> x;
-    double sum = 0;
-    
-    for (size_t i = 0; i < size; i++)
-    {
-        for (size_t j = 0; j < size; j++)
-        {
-            sum += L[i][j] * b[j];    
-		}
-        x.push_back(sum);
-        sum = 0;
-    }
-    return x;
+  vector<double> y(size),x(size);
+  for (size_t i = 0; i < size; i++)
+  {
+      y[A.order[i]] = b[A.order[i]];
+      for (size_t j = 0; j < i; j++)
+          y[A.order[i]] -= y[A.order[j]] * A[A.order[i]][j];
+      y[A.order[i]] /= A[A.order[i]][i];
+  }
+  for (int i = (int)size - 1; i >= 0; i--) {
+      x[A.order[i]] = y[A.order[i]];
+      for (size_t j = (size_t)i + 1; j < size; j++) {
+          x[A.order[i]] -= A[A.order[i]][j] * x[A.order[j]];
+      }
+  }
+  return x;
 }
+  // vector<double> y(size),x(size);
+  // for (size_t i = 0; i < size; i++)
+  // {
+  //     y[A.order[i]] = b[A.order[i]];
+  //     for (size_t j = 0; j < i; j++)
+  //     {
+  //         y[A.order[i]] -= y[A.order[j]] * A[A.order[i]][j];
+  //     }
+  //     y[A.order[i]] /= A[A.order[i]][i];
+  // }
+  // for (int i = size - 1; i >= 0; i--)
+  // {
+  //     x[A.order[i]] = y[A.order[i]];
+  //     for (size_t j = i + 1; j < size; j++)
+  //     {
+  //         x[A.order[i]] -= A[A.order[i]][j] * x[A.order[j]];
+  //     }
+  // }
+  // return x;
+    // Matrix L(size);
+    // Matrix U(size);
+    // vector<double> temp(size);
+    // //cout<<A.out();
+    // U = A;
+    // for (size_t i = 0; i < size; i++)
+    // {
+    //   temp[i] = b[A.order[i]];
+    // }
+    // for (size_t i = 0; i < size; i++)
+    // {
+    //     for (size_t j = 0; j < size; j++)
+    //     {
+    //         if (i > j)
+    //         {
+    //             L[i][j] = U[i][j];
+    //             U[i][j] = 0;
+    //         }
+    //     }
+    //     L[i][i] = 1;
+    // }
+    // L = U.inverse() * L.inverse();
+    //
+    // vector<double> x;
+    // double sum = 0;
+    //
+    // for (size_t i = 0; i < size; i++)
+    // {
+    //     for (size_t j = 0; j < size; j++)
+    //     {
+    //         sum += L[i][j] * temp[j];
+		// }
+    //     x.push_back(sum);
+    //     sum = 0;
+    // }
+    // return x;
+
 
 const string outresult(const size_t size, const vector<double> b, const Matrix &A)
 {
+    cout<<endl;
     Matrix U(size);
     U = A;
     Matrix L(size);
     string res = "X = \n";
     for (size_t i = 0; i < size; i++)
     {
-        res += to_string(b[i]) + ' ';
+        res += to_string(b[A.order[i]]) + ' ';
     }
     res += '\n';
     for (size_t i = 0; i < size; i++)
     {
         for (size_t j = 0; j < size; j++)
         {
-            if (i > j)
+            if (i >= j)
             {
-                L[i][j] = U[i][j];
+                L[i][j] = U[A.order[i]][j];
+                U[A.order[i]][j] = U[i][j];
                 U[i][j] = 0;
             }
         }
-        L[i][i] = 1;
+
+        U[i][i] = 1;
     }
     res += "L = \n";
     res += L.out();
@@ -512,27 +577,28 @@ const double discrepancy_rmse(const vector<double> &solution, const vector<doubl
     {
         for (size_t j = 0; j < b.size(); j++)
         {
-            if (i > j)
+            if (i >= j)
             {
-                L[i][j] = U[i][j];
+                L[i][j] = U[A.order[i]][j];
+                U[A.order[i]][j] = U[i][j];
                 U[i][j] = 0;
             }
         }
-        L[i][i] = 1;
+
+        U[i][i] = 1;
     }
     L = L * U;
-
     for (size_t i = 0; i < b.size(); i++)
     {
-        y[i] = 0;
+        y[A.order[i]] = 0;
         for (size_t j = 0; j < b.size(); j++)
         {
-            y[i] += L[i][j] * solution[j];
+            y[A.order[i]] += L[A.order[i]][j] * solution[A.order[j]];
         }
     }
     for (size_t i = 0; i < b.size(); i++)
     {
-        sum += pow(y[i] - b[i], 2);
+        sum += pow(y[A.order[i]] - b[i], 2);
     }
     return sqrt(sum / (b.size()));
 }
@@ -548,20 +614,32 @@ const Matrix fromformula(size_t &size, vector<double> &b)
     Calc c("");
     int ipos = formula.find('i');
     int jpos = formula.find('j');
+    int npos = formula.find('n');
     Matrix tempmat(size);
     string tempf;
+    if (npos != -1)
+    {
+      formula.erase(ipos,1);
+      formula.insert(ipos, to_string(size));
+    }
     for (size_t i = 0; i < size; i++)
     {
         for (size_t j = 0; j < size; j++)
         {
             tempf = formula;
-            tempf.erase(ipos,1);
-            tempf.insert(ipos, to_string(i));
-            tempf.erase(jpos,1);
-            tempf.insert(jpos, to_string(j));
-			c.setexpr(tempf);
-			m = c.expr();
-			tempmat[i][j] = m;
+            if (ipos != -1)
+            {
+              tempf.erase(ipos,1);
+              tempf.insert(ipos, to_string(i));
+            }
+            if (jpos != -1)
+            {
+              tempf.erase(jpos,1);
+              tempf.insert(jpos, to_string(j));
+            }
+			      c.setexpr(tempf);
+			      m = c.expr();
+			      tempmat[i][j] = m;
         }
     }
     double tempvar;
@@ -601,19 +679,19 @@ int main(int argc, char **argv)
 			ofstream fout(ofilename);
 			fout << outresult(size, sol, stored);
 			fout << "rmse:" << endl;
-			fout << discrepancy_rmse(sol, b, stored);
+			fout << discrepancy_rmse(sol, b, stored) << endl;
 		}
 		else
 		{
 			cout << outresult(size, sol, stored);
 			cout << "rmse:" << endl;
-			cout << discrepancy_rmse(sol, b, stored);
+			cout << discrepancy_rmse(sol, b, stored) << endl;
 		}
 	}
-    catch(char const* err)
+  catch(char const* err)
 	{
 		cout<<err<<endl;
 		return -1;
-	}	
+	}
     return 0;
 }
