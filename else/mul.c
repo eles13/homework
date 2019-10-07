@@ -1,13 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <assert.h>
 int main(int argc, char** argv)
 {
     if (argc != 5)
         return -1;
     FILE* fina = fopen(argv[1],"rb+");
-    FILE* finb = fopen(argv[2], "rb+");
+    FILE* finb = fopen(argv[2],  "rb+");
     FILE* fout = fopen(argv[3],"wb+");
+    if (!(fina&&finb&&fout))
+      return -1;
     char ca,cb;
     fread(&ca,sizeof(char),1,fina);
     fread(&cb, sizeof(char),1,finb);
@@ -20,7 +23,7 @@ int main(int argc, char** argv)
         return -1;
     fwrite(&ca, sizeof(char),1,fout);
     fwrite(&sizea, sizeof(int32_t),1,fout);
-    int mode = (int)argv[4][0] - (int)'0'; 
+    int mode = (int)argv[4][0] - (int)'0';
     time_t start,end;
     FILE* timings = fopen("timings.txt","a");
     double passed;
@@ -29,11 +32,17 @@ int main(int argc, char** argv)
         int32_t** m32a = (int32_t**)calloc(sizeof(int32_t*),sizea);
         int32_t** m32b = (int32_t**)calloc(sizeof(int32_t*), sizeb);
         int32_t** m32c = (int32_t**)calloc(sizeof(int32_t*), sizea);
+        assert(m32a);
+        assert(m32b);
+        assert(m32c);
         for(int32_t i = 0; i< sizea; i++)
         {
             m32a[i] = (int32_t*)calloc(sizeof(int32_t),sizea);
             m32b[i] = (int32_t*)calloc(sizeof(int32_t),sizeb);
             m32c[i] = (int32_t*)calloc(sizeof(int32_t),sizeb);
+            assert(m32a[i]);
+            assert(m32b[i]);
+            assert(m32c[i]);
             for (int32_t j = 0; j<sizea; j++)
             {
                 fread(&m32a[i][j],sizeof(int32_t),1,fina);
@@ -41,20 +50,20 @@ int main(int argc, char** argv)
                 m32c[i][j] = 0;
             }
         }
-        time(&start);
-        switch (mode) 
+        start = clock();
+        switch (mode)
         {
             case 0:
             {
                 for(int32_t i = 0; i<sizea; i++)
-                {    
+                {
                     for (int32_t j = 0; j<sizea; j++)
                     {
                         m32c[i][j]=0;
                         for (int32_t k = 0; k<sizea; k++)
                         {
                             m32c[i][j]+=m32a[i][k]*m32b[k][j];
-                        }                  
+                        }
                     }
                 }
                 break;
@@ -70,7 +79,7 @@ int main(int argc, char** argv)
                             m32c[i][j] += r*m32b[k][j];
                     }
                 }
-                break;    
+                break;
             }
             case 4:
             {
@@ -82,23 +91,23 @@ int main(int argc, char** argv)
                         for(int32_t i = 0; i<sizea; i++)
                             m32c[i][j] += m32a[i][k] * r;
                     }
-                } 
+                }
                 break;
             }
             case 3:
             {
                 for(int32_t j = 0; j<sizea; j++)
-                { 
+                {
                     for (int32_t i = 0; i<sizea; i++)
                     {
                         m32c[i][j] = 0;
                         for (int32_t k = 0; k<sizea; k++)
                         {
                             m32c[i][j]+=m32a[i][k]*m32b[k][j];
-                        }                    
+                        }
                     }
                 }
-                break;   
+                break;
             }
             case 2:
             {
@@ -115,7 +124,7 @@ int main(int argc, char** argv)
                 break;
             }
             case 5:
-            {   
+            {
                 for(int32_t k=0; k<sizea; k++)
                 {
                     for(int32_t j=0; j<sizea; j++)
@@ -127,9 +136,9 @@ int main(int argc, char** argv)
                 break;
             }
         }
-        time(&end);
-        passed = difftime(end,start);
-        fprintf(timings,"%.15f mode32: %d\n",passed, mode);
+        end = clock();
+        passed = end - start;
+        fprintf(timings,"%.30f mode32: %d\n",passed/CLOCKS_PER_SEC, mode);
         for (int32_t i = 0; i< sizea; i++)
         {
             for (int32_t j = 0; j<sizea; j++)
@@ -145,37 +154,45 @@ int main(int argc, char** argv)
         free(m32b);
         free(m32c);
     }
-    else 
+    else
     {
         int64_t** m64a = (int64_t**)calloc(sizeof(int64_t*),sizea);
         int64_t** m64b = (int64_t**)calloc(sizeof(int64_t*),sizeb);
         int64_t** m64c = (int64_t**)calloc(sizeof(int64_t*),sizea);
+        assert(m64a);
+        assert(m64b);
+        assert(m64c);
         for(int32_t i = 0; i< sizea; i++)
         {
             m64a[i] = (int64_t*)calloc(sizeof(int64_t),sizea);
             m64b[i] = (int64_t*)calloc(sizeof(int64_t),sizeb);
             m64c[i] = (int64_t*)calloc(sizeof(int64_t),sizea);
+            assert(m64a[i]);
+            assert(m64b[i]);
+            assert(m64c[i]);
             for (int32_t j = 0; j<sizea; j++)
             {
+                m64a[i][j] = rand()%1000;
+                m64b[i][j] = rand()%1000;
                 fread(&m64a[i][j],sizeof(int64_t),1,fina);
                 fread(&m64b[i][j],sizeof(int64_t),1,finb);
                 m64c[i][j] = 0;
             }
         }
-        time(&start);
-        switch (mode) 
+        start = clock();
+        switch (mode)
         {
             case 0:
             {
                 for(int32_t i = 0; i<sizea; i++)
-                {    
+                {
                     for (int32_t j = 0; j<sizea; j++)
                     {
                         m64c[i][j]=0;
                         for (int32_t k = 0; k<sizea; k++)
                         {
                             m64c[i][j]+=m64a[i][k]*m64b[k][j];
-                        }                  
+                        }
                     }
                 }
                 break;
@@ -191,7 +208,7 @@ int main(int argc, char** argv)
                             m64c[i][j] += r*m64b[k][j];
                     }
                 }
-                break;    
+                break;
             }
             case 4:
             {
@@ -203,23 +220,23 @@ int main(int argc, char** argv)
                         for(int32_t i = 0; i<sizea; i++)
                             m64c[i][j] += m64a[i][k] * r;
                     }
-                } 
+                }
                 break;
             }
             case 3:
             {
                 for(int32_t j = 0; j<sizea; j++)
-                { 
+                {
                     for (int32_t i = 0; i<sizea; i++)
                     {
                         m64c[i][j] = 0;
                         for (int32_t k = 0; k<sizea; k++)
                         {
                             m64c[i][j]+=m64a[i][k]*m64b[k][j];
-                        }                    
+                        }
                     }
                 }
-                break;   
+                break;
             }
             case 2:
             {
@@ -248,9 +265,9 @@ int main(int argc, char** argv)
                 break;
             }
         }
-        time(&end);
-        passed = difftime(end,start);
-        fprintf(timings,"%.15f mode64: %d\n",passed, mode);
+        end = clock();
+        passed = end - start;
+        fprintf(timings,"%.30f mode64: %d\n",passed/CLOCKS_PER_SEC, mode);
         for (int32_t i = 0; i< sizea; i++)
         {
             for (int32_t j = 0; j<sizea; j++)
