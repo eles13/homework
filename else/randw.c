@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <time.h>
 int main(int argc, char** argv)
 {
   srand(13);
@@ -22,11 +23,13 @@ int main(int argc, char** argv)
   #pragma omp parallel for schedule(dynamic,1)
   for (int i = 0; i < n; i++)
   {
+    int randnum = clock() % 100;
     double start = omp_get_wtime();
     int curpos = x;
-    while ((x != a) && (x != b))
+    while ((curpos != a) && (curpos != b))
     {
-      if (rand() % 1000 / 1000.0 > p)
+      randnum = (randnum*11+123) % 10000;
+      if ( randnum / 10000.0 > p)
         curpos--;
       else
         curpos++;
