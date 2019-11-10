@@ -4,9 +4,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
+#include <limits.h>
 int main(int argc, char** argv)
 {
-  srand(13);
   if (argc != 7)
     return -1;
   int a,b,x,n,numthreads;
@@ -17,35 +17,47 @@ int main(int argc, char** argv)
   n = atoi(argv[4]);
   p = strtod(argv[5], NULL);
   numthreads = atoi(argv[6]);
+  unsigned int* sds = calloc(p, sizeof(unsigned int));
+  assert(sds);
+  srand(13);
+  for (int i = 0; i < p; i++)
+  {
+    sds[i] = rand();
+  }
   omp_set_num_threads(numthreads);
   double sumt = 0, sump = 0;
+  int curtime = time(NULL);
   double whstart = omp_get_wtime();
-  #pragma omp parallel for schedule(dynamic,1)
-  for (int i = 0; i < n; i++)
+  #pragma omp parallel
   {
-    int randnum = clock() % 100;
-    double start = omp_get_wtime();
-    int curpos = x;
-    while ((curpos != a) && (curpos != b))
+    unsigned int sd = sds[omp_get_thread_num()];
+    #pragma omp for
+    for (int i = 0; i < n; i++)
     {
-      randnum = (randnum*11+123) % 10000;
-      if ( randnum / 10000.0 > p)
-        curpos--;
-      else
-        curpos++;
+      double start = omp_get_wtime();
+      int curpos = x;
+      while ((curpos != a) && (curpos != b))
+      {
+        int randnum = rand_r(&sd);
+        if ( (float)randnum / (float)RAND_MAX > p)
+          curpos--;
+        else
+          curpos++;
+      }
+      #pragma omp critical
+      {
+        sumt += omp_get_wtime()-start;
+        if ( curpos == b )
+          sump++;
+      }
     }
-    #pragma omp critical
-    {
-      sumt += omp_get_wtime()-start;
-      if ( curpos == b )
-        sump++;
-    }
-  }
+}
   double time = omp_get_wtime() - whstart;
   FILE* fout = fopen("stats.txt", "a");
   if (!fout)
     return -1;
   int check = fprintf(fout,"%f %f %f %d %d %d %d %f %d\n", sump/n, time, sumt/n, a, b, x, n, p, numthreads);
   assert(check);
+  free(sds);
   return 0;
 }
