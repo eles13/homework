@@ -129,7 +129,7 @@ static void sort(int *m, const int n, const int numthreads)
 	omp_set_num_threads(numthreads);
 	int size = n / numthreads;
 	printf("--start--\n");
-	out(m, size * numthreads);
+	out(m, n);
 	printf("--start--\n");
 	#pragma omp parallel firstprivate(size)
 	{
@@ -141,11 +141,23 @@ static void sort(int *m, const int n, const int numthreads)
 		}
 		qsort(&m[size*thrnum],size + oddsize,sizeof(int),cmp);
 		#pragma omp barrier
+		oddsize = 0;
+		#pragma omp single
+		{
+		out(m, n);
+	  }
 		for (int pow = 2; pow <= numthreads; pow*=2)
 		{
 			//printf("ITER %d\n", pow);
-			if (thrnum < numthreads)
+			if (thrnum < numthreads / pow)
 			{
+				//#pragma omp critical
+			//	{
+				printf("num %d\n", omp_get_thread_num());
+				if (thrnum == numthreads/pow - 1)
+				{
+					oddsize = 1;
+				}
 				int j = 0;
 				int* buf = calloc(size * pow / 2 , sizeof(int));
 				assert(buf);
@@ -154,7 +166,8 @@ static void sort(int *m, const int n, const int numthreads)
 						buf[j] = m[i];
 						j++;
 					}
-				if (thrnum == 3)
+				///after-initiaalization
+				if (thrnum == 1)
 				{
 					printf("/////////\nbuf1\n");
 					out(buf, size*pow/2);
@@ -166,9 +179,13 @@ static void sort(int *m, const int n, const int numthreads)
 				for (int i = size * thrnum * pow + size * pow / 2; i < size * thrnum * pow + size * pow + oddsize; i++)
 				{
 					buf2[j] = m[i];
+					if (thrnum == 1)
+					{
+						printf("adding %d on %d from %d\n", m[i], j, i);
+					}
 					j++;
 				}
-				if (thrnum == 3)
+				if (thrnum == 1)
 				{
 					printf("/////////\nbuf2\n");
 					if (oddsize)
@@ -179,6 +196,7 @@ static void sort(int *m, const int n, const int numthreads)
 				}
 				//#pragma omp critical
 				//{
+
 				int defpos = size*pow / 4;
 				//#pragma omp task firstprivate(buf,buf2, size, oddsize, defpos, pow)
 				int pos = binsearch(buf2,size*pow / 2 + oddsize, buf, defpos);
@@ -202,12 +220,13 @@ static void sort(int *m, const int n, const int numthreads)
 			  free(buf);
 			  free(buf2);
 			}
-			else break;
+			printf("num %d iter\n", omp_get_thread_num());
+			#pragma omp barrier
 		}
 	}
 	{
 	printf("--------\n");
-	out(m, size * numthreads + 1);
+	out(m, n);
 	printf("--------\n");
 	}
 }
