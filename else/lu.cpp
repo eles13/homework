@@ -476,132 +476,93 @@ const vector<double> solution(const vector<double> &b, const Matrix &A, const si
   }
   return x;
 }
-  // vector<double> y(size),x(size);
-  // for (size_t i = 0; i < size; i++)
-  // {
-  //     y[A.order[i]] = b[A.order[i]];
-  //     for (size_t j = 0; j < i; j++)
-  //     {
-  //         y[A.order[i]] -= y[A.order[j]] * A[A.order[i]][j];
-  //     }
-  //     y[A.order[i]] /= A[A.order[i]][i];
-  // }
-  // for (int i = size - 1; i >= 0; i--)
-  // {
-  //     x[A.order[i]] = y[A.order[i]];
-  //     for (size_t j = i + 1; j < size; j++)
-  //     {
-  //         x[A.order[i]] -= A[A.order[i]][j] * x[A.order[j]];
-  //     }
-  // }
-  // return x;
-    // Matrix L(size);
-    // Matrix U(size);
-    // vector<double> temp(size);
-    // //cout<<A.out();
-    // U = A;
-    // for (size_t i = 0; i < size; i++)
-    // {
-    //   temp[i] = b[A.order[i]];
-    // }
-    // for (size_t i = 0; i < size; i++)
-    // {
-    //     for (size_t j = 0; j < size; j++)
-    //     {
-    //         if (i > j)
-    //         {
-    //             L[i][j] = U[i][j];
-    //             U[i][j] = 0;
-    //         }
-    //     }
-    //     L[i][i] = 1;
-    // }
-    // L = U.inverse() * L.inverse();
-    //
-    // vector<double> x;
-    // double sum = 0;
-    //
-    // for (size_t i = 0; i < size; i++)
-    // {
-    //     for (size_t j = 0; j < size; j++)
-    //     {
-    //         sum += L[i][j] * temp[j];
-		// }
-    //     x.push_back(sum);
-    //     sum = 0;
-    // }
-    // return x;
 
 
 const string outresult(const size_t size, const vector<double> b, const Matrix &A)
 {
     cout<<endl;
-    Matrix U(size);
-    U = A;
-    Matrix L(size);
     string res = "X = \n";
     for (size_t i = 0; i < size; i++)
     {
         res += to_string(b[A.order[i]]) + ' ';
     }
     res += '\n';
+    res+="L = \n";
     for (size_t i = 0; i < size; i++)
     {
         for (size_t j = 0; j < size; j++)
         {
-            if (i >= j)
+            if (i <= j)
             {
-                L[i][j] = U[A.order[i]][j];
-                U[A.order[i]][j] = U[i][j];
-                U[i][j] = 0;
+              res+=to_string(A[A.order[i]][j])+ ' ';
+            }
+            else
+              res+="0 ";
+        }
+        res+="\n";
+    }
+    res+="U=\n";
+    for (size_t i = 0; i < size; i++)
+    {
+        for (size_t j = 0; j < size; j++)
+        {
+            if (i > j)
+            {
+              res+=to_string(A[A.order[i]][j])+' ';
+            }
+            else if (i == j)
+            {
+              res+="1 ";
+            }
+            else
+            {
+              res+="0 ";
             }
         }
-
-        U[i][i] = 1;
+        res+="\n";
     }
-    res += "L = \n";
-    res += L.out();
-    res += "U = \n";
-    res += U.out();
     return res;
 }
 
-const double discrepancy_rmse(const vector<double> &solution, const vector<double> &b, const Matrix &A)
+const double discrepancy_rmse(const vector<double> &solution, const vector<double> &b,const Matrix &A)
 {
-    Matrix U(b.size());
-    U = A;
+  vector<double> x(b.size());
+  for (size_t i = 0; i < b.size() ; i++)
+  {
+      double elem = 0;
+      x[i] = 0;
+      for (size_t j = 0; j < b.size(); j++)
+      {
+        if (i>j)
+          elem = 0;
+        else if (i == j)
+          elem = 1;
+        else
+          elem = A[A.order[i]][j];
+        x[i]+=elem*solution[A.order[j]];
+      }
+    }
     vector<double> y(b.size());
-    double sum = 0;
-    Matrix L(b.size());
     for (size_t i = 0; i < b.size(); i++)
     {
+        double elem = 0;
+        y[i] = 0;
         for (size_t j = 0; j < b.size(); j++)
         {
-            if (i >= j)
-            {
-                L[i][j] = U[A.order[i]][j];
-                U[A.order[i]][j] = U[i][j];
-                U[i][j] = 0;
-            }
+          if (i<j)
+            elem = 0;
+          else
+            elem = A[A.order[i]][j];
+          y[i]+=elem*x[j];
         }
-
-        U[i][i] = 1;
-    }
-    L = L * U;
-    for (size_t i = 0; i < b.size(); i++)
-    {
-        y[A.order[i]] = 0;
-        for (size_t j = 0; j < b.size(); j++)
-        {
-            y[A.order[i]] += L[A.order[i]][j] * solution[A.order[j]];
-        }
-    }
-    for (size_t i = 0; i < b.size(); i++)
-    {
-        sum += pow(y[A.order[i]] - b[i], 2);
-    }
-    return sqrt(sum / (b.size()));
-}
+      }
+      double sum = 0;
+      for(size_t i = 0; i < b.size(); i++)
+      {
+        sum+=pow(y[i] - b[A.order[i]],2);
+      }
+      return sqrt(sum);
+  }
 
 const Matrix fromformula(size_t &size, vector<double> &b)
 {
@@ -652,6 +613,24 @@ const Matrix fromformula(size_t &size, vector<double> &b)
     return tempmat;
 }
 
+Matrix form(size_t& size, vector<double>& b)
+{
+  cin>>size;
+  Matrix A(size);
+  for(size_t i = 0; i < size; i++)
+  {
+    double sum = 0;
+    for(size_t j = 0; j < size; j++)
+    {
+      A[i][j] = 1./(2*size - i - j + 1);
+      sum+= A[i][j];
+    }
+    b.push_back(sum);
+  }
+  cout<<A.out();
+  return A;
+}
+
 int main(int argc, char **argv)
 {
     cout << "Choose input option: 0 - file; 1 - formula" << endl;
@@ -666,7 +645,7 @@ int main(int argc, char **argv)
     }
     else
     {
-        stored = fromformula(size, b);
+        stored = form(size, b);
     }
     try
     {
@@ -683,8 +662,8 @@ int main(int argc, char **argv)
 		}
 		else
 		{
-			cout << outresult(size, sol, stored);
-			cout << "rmse:" << endl;
+			cout<<outresult(size, sol, stored);
+			cout << "rmse:";
 			cout << discrepancy_rmse(sol, b, stored) << endl;
 		}
 	}
