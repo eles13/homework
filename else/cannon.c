@@ -5,16 +5,6 @@
 #include <math.h>
 #define MASTER 0
 
-void out(int32_t* m, int size)
-{
-	for(int i = 0; i < size; i++)
-	{
-		for(int j = 0; j<size; j++)
-			printf("%d ", m[i*size + j]);
-		printf("\n");
-	}
-}
-
 static void Matmul(int rank, int size, int32_t* a, int32_t* b, int32_t* c, int32_t sz)
 {
 		for(int32_t i = 0; i<sz; i++)
@@ -37,14 +27,14 @@ static void bcastblocks(int rank, int size, int32_t* ma, int32_t* mb, MPI_Dataty
 		{
 			if(i % (int)sqrt(size) == 0)
 			{
-				start += n * n/sqrt(size);
+				start += n * n/sqrt(size) - ((int)sqrt(size) - 1) * n/sqrt(size);
 			}
 			else
 			{
 				start+=n/sqrt(size);
 			}
 			MPI_Send(&ma[start], 1, block, i, 0, MPI_COMM_WORLD);
-			MPI_Send(&ma[start], 1, block, i, 1, MPI_COMM_WORLD);
+			MPI_Send(&mb[start], 1, block, i, 1, MPI_COMM_WORLD);
 		}
 		MPI_Sendrecv(ma, 1, block, MASTER, 0, a, n * n /size, MPI_INT, MASTER, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 		MPI_Sendrecv(mb, 1, block, MASTER, 1, b, n * n /size, MPI_INT, MASTER, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -54,6 +44,8 @@ static void bcastblocks(int rank, int size, int32_t* ma, int32_t* mb, MPI_Dataty
 		MPI_Recv(a,n*n/size, MPI_INT, MASTER, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 		MPI_Recv(b,n*n/size, MPI_INT, MASTER, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 	}
+
+	MPI_Barrier(MPI_COMM_WORLD);
 }
 
 static void gatherblocks(int rank, int size, MPI_Datatype block, int32_t* mc, int32_t* c, int n)
@@ -70,7 +62,7 @@ static void gatherblocks(int rank, int size, MPI_Datatype block, int32_t* mc, in
 		{
 			if (i % (int)sqrt(size) == 0)
 			{
-				start += n * n/size;
+				start += n * n/sqrt(size) - ((int)sqrt(size) - 1) * n/sqrt(size);
 			}
 			else
 			{
@@ -84,26 +76,36 @@ static void gatherblocks(int rank, int size, MPI_Datatype block, int32_t* mc, in
 static void performCannon(int rank, int size, int32_t n, int32_t* a, int32_t* b, int32_t* c)
 {
 	MPI_Comm cart;
+
 	int dims[2];
 	dims[0] = dims[1] = (int)sqrt(size);
 	int periods[2];
 	periods[0] = periods[1] = 1;
 	MPI_Cart_create(MPI_COMM_WORLD, 2, dims, periods, 1, &cart);
-	int myrank, leftrank, rightrank, uprank, downrank;
+
+	int myrank, leftrank, rightrank, uprank, downrank, shiftsource, shiftdest;
 	MPI_Comm_rank(cart, &myrank);
 	int coords[2];
-	MPI_Cart_coords(cart, myrank, 2, coords);
-	MPI_Cart_shift(cart, 0, -1, &rightrank, &leftrank);
-	MPI_Cart_shift(cart, 1, -1, &downrank, &uprank);
-	int nlocal = n/dims[0];
 
+	MPI_Cart_coords(cart, myrank, 2, coords);
+
+	int nlocal = n/dims[0];
+	MPI_Cart_shift(cart, 1, -coords[0], &shiftsource, &shiftdest);
+
+	MPI_Sendrecv_replace(a, nlocal * nlocal, MPI_INT, shiftdest, 1, shiftsource, 1, cart, MPI_STATUS_IGNORE);
+	MPI_Cart_shift(cart, 0, -coords[1], &shiftsource, &shiftdest);
+	MPI_Sendrecv_replace(b, nlocal * nlocal, MPI_INT, shiftdest, 1, shiftsource, 1, cart, MPI_STATUS_IGNORE);
+	MPI_Cart_shift(cart, 1, -1, &rightrank, &leftrank);
+	MPI_Cart_shift(cart, 0, -1, &downrank, &uprank);
 	for(int i = 0; i < dims[0]; i++)
 	{
 		Matmul(rank, size, a, b, c, nlocal);
+		MPI_Barrier(cart);
 		MPI_Sendrecv_replace(a, nlocal * nlocal, MPI_INT, leftrank, 1, rightrank, 1, cart, MPI_STATUS_IGNORE);
+		MPI_Barrier(cart);
 		MPI_Sendrecv_replace(b, nlocal * nlocal, MPI_INT, uprank, 1, downrank, 1, cart, MPI_STATUS_IGNORE);
+		MPI_Barrier(cart);
 	}
-
 	MPI_Comm_free(&cart);
 }
 
@@ -134,7 +136,6 @@ int main(int argc, char **argv){
 			return -1;
 		if (sizea != sizeb)
 			return -1;
-
 		ma = calloc(sizea * sizea, sizeof(int32_t));
 		assert(ma);
 		mb = calloc(sizea * sizea, sizeof(int32_t));
@@ -170,6 +171,10 @@ int main(int argc, char **argv){
 	assert(c);
 	bcastblocks(rank, size, ma, mb, block, n, a, b, c);
 	performCannon(rank, size, n, a, b, c);
+	// MPI_Barrier(MPI_COMM_WORLD);
+	// if(rank == MASTER)
+	// 	printf("--------\n");
+	// MPI_Barrier(MPI_COMM_WORLD);
 	gatherblocks(rank, size, block, mc, c, n);
 	MPI_Barrier(MPI_COMM_WORLD);
 	if(rank == MASTER)
