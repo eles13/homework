@@ -6,7 +6,7 @@
 int rank, size;
 
 double formula_Mat(size_t i, size_t j){
-    return (double)i + j;
+    return 1.0/(i + j + 1.0);
 }
 
 double* form_x(size_t n){
@@ -60,12 +60,6 @@ void matByVec(const double* x, double* a, size_t n, size_t iter){
     for(size_t i = 0; i < n; i++){
         a[i] = rez[i];
     }
-//    if(rank == 0){
-//        for(int j = 0; j < n; j++) {
-//            std::cout << a[j] << '\n';
-//        }
-//        std::cout<<"------------------\n";
-//    }
     free(rez);
 }
 
@@ -76,7 +70,7 @@ double gen_b_row(size_t i, double** vec, size_t s){
     }
     double gsum;
     MPI_Reduce(&sum, &gsum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&gsum, size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&gsum, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     return gsum;
 }
 
@@ -144,13 +138,20 @@ int main(int argc, char** argv) {
         free(x);
     }
     MPI_Barrier(MPI_COMM_WORLD);
+    for(size_t i = 0; i < n; i++){
+        std::cout<<rank<<' '<<i<<' ';
+        for(size_t j = 0; j < my_cols.size(); j++){
+            std::cout<<locmat[j][i]<<' ';
+        }
+        std::cout<<'\n';
+    }
     double t1 = MPI_Wtime() - start;
     start = MPI_Wtime();
     auto csum = (double *) calloc(n, sizeof(double));
     for(int iter = n-1; iter >= 0; iter--){
         if((int)iter%size == rank){
             solution[int(iter/size)] = (b[iter] - csum[iter]) / locmat[int(iter/size)][iter];
-            for(size_t lociter = 0; lociter < iter; lociter++) {
+            for(int lociter = 0; lociter < iter; lociter++) {
                 csum[lociter] += solution[int(iter / size)] * locmat[int(iter / size)][lociter];
             }
         }
@@ -158,6 +159,9 @@ int main(int argc, char** argv) {
         MPI_Bcast(csum, n, MPI_DOUBLE, (int)iter%size, MPI_COMM_WORLD);
     }
     MPI_Barrier(MPI_COMM_WORLD);
+    for(int i = 0; i < my_cols.size(); i++){
+        std::cout<<rank<<' '<<solution[i]<<'\n';
+    }
     double t2 = MPI_Wtime() - start;
     free(csum);
     auto newb  = (double*)calloc(n, sizeof(double));
@@ -177,6 +181,7 @@ int main(int argc, char** argv) {
         MPI_Reduce(x_true, x_x, n, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
         free(x_true);
     }
+
     if(rank == 0){
         std::cout<<t1<<' '<<t2<<' '<<t1+t2<<std::endl;
         std::cout<<norm(copy_b, b_b, n)<<std::endl;
