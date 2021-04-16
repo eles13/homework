@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 #MAKEFLAGS += --silent
-N := 7 8 9
-I := 01 02 04 08 16
+N := 128 256 512
+I := 01 02 04 08 16 32
 
 all: mainp
 main:

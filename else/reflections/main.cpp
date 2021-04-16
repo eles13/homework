@@ -2,11 +2,13 @@
 #include "mpi.h"
 #include <vector>
 #include <cmath>
+#include <iomanip>
+#include <cstring>
 
 int rank, size;
 
 double formula_Mat(size_t i, size_t j){
-    return 1.0/(i + j + 1.0);
+    return 1.0/(i+j + 1.0);
 }
 
 double* form_x(size_t n){
@@ -36,30 +38,15 @@ double* calc_x(size_t iter, const double* col, size_t n){
 
 void matByVec(const double* x, double* a, size_t n, size_t iter){
     auto rez = (double*)calloc(n, sizeof(double));
-    double elem;
-    for (size_t i = 0; i < n; i++)
-    {
-        rez[i]=0;
-        for (size_t j = 0; j < n; j++)
-        {
-            if(i<iter or j<iter){
-                if(i==j){
-                    elem = 1;
-                }else{
-                    elem = 0;
-                }
-            }else{
-                elem = -2*x[i-iter]*x[j-iter];
-                if(i==j){
-                    elem += 1;
-                }
-            }
-            rez[i] += a[j]*elem;
-        }
+    double elem = 0.0;
+    for(size_t i = 0; i < n - iter; i++){
+        elem += x[i] * a[i + iter];
     }
-    for(size_t i = 0; i < n; i++){
-        a[i] = rez[i];
+    elem *= 2;
+    for(size_t i = 0; i < n - iter; i++){
+        rez[i+iter] = a[i+iter] - elem * x[i];
     }
+    std::memcpy(&a[iter], &rez[iter], (n - iter) * sizeof(double));
     free(rez);
 }
 
@@ -83,6 +70,7 @@ double norm(const double* v1, const double*v2, size_t n){
 }
 
 int main(int argc, char** argv) {
+    //std::cout << std::fixed << std::setprecision(8);
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -91,7 +79,7 @@ int main(int argc, char** argv) {
         return -1;
     }
     int mode = atoi(argv[2]);
-    auto n = (size_t)pow(2.0,atoi(argv[1]));
+    auto n = (size_t)atoi(argv[1]);
     double* x_true;
     if(mode){
         x_true = form_x(n);
@@ -100,6 +88,9 @@ int main(int argc, char** argv) {
     my_cols.reserve((int)(n / size));
     for(int i = 0; i < (int)(n / size); i++) {
         my_cols.push_back(rank + size * i);
+    }
+    if (size_t(n/size) * size < n and size_t(rank) < n - int(n/size) * size){
+        my_cols.push_back(size * int(n/size) + rank);
     }
     auto locmat = (double**) calloc(my_cols.size(), sizeof(double*));
     auto copy_locmat = (double**) calloc(my_cols.size(), sizeof(double*));
@@ -138,18 +129,20 @@ int main(int argc, char** argv) {
         free(x);
     }
     MPI_Barrier(MPI_COMM_WORLD);
-    for(size_t i = 0; i < n; i++){
-        std::cout<<rank<<' '<<i<<' ';
-        for(size_t j = 0; j < my_cols.size(); j++){
-            std::cout<<locmat[j][i]<<' ';
-        }
-        std::cout<<'\n';
-    }
+//    for(size_t i = 0; i < n; i++){
+//        std::cout<<rank<<' '<<i<<' ';
+//        for(size_t j = 0; j < my_cols.size(); j++){
+//            std::cout<<locmat[j][i]<<' ';
+//        }
+//        std::cout<<'\n';
+//    }
     double t1 = MPI_Wtime() - start;
     start = MPI_Wtime();
     auto csum = (double *) calloc(n, sizeof(double));
+    //auto x = (double *) calloc(n, sizeof(double));
     for(int iter = n-1; iter >= 0; iter--){
         if((int)iter%size == rank){
+            //std::cout<<iter<<' '<<b[iter]<<' '<<csum[iter]<<' '<<locmat[int(iter/size)][iter]<<'\n';
             solution[int(iter/size)] = (b[iter] - csum[iter]) / locmat[int(iter/size)][iter];
             for(int lociter = 0; lociter < iter; lociter++) {
                 csum[lociter] += solution[int(iter / size)] * locmat[int(iter / size)][lociter];
@@ -159,9 +152,10 @@ int main(int argc, char** argv) {
         MPI_Bcast(csum, n, MPI_DOUBLE, (int)iter%size, MPI_COMM_WORLD);
     }
     MPI_Barrier(MPI_COMM_WORLD);
-    for(int i = 0; i < my_cols.size(); i++){
-        std::cout<<rank<<' '<<solution[i]<<'\n';
-    }
+//    for(size_t i = 0; i < my_cols.size(); i++){
+//        std::cout<<rank<<' '<<solution[i]<<'\n';
+//    }
+    MPI_Barrier(MPI_COMM_WORLD);
     double t2 = MPI_Wtime() - start;
     free(csum);
     auto newb  = (double*)calloc(n, sizeof(double));
@@ -173,6 +167,7 @@ int main(int argc, char** argv) {
     auto b_b  = (double*)calloc(n, sizeof(double));
     auto x_x =  (double*)calloc(n, sizeof(double));
     MPI_Reduce(newb, b_b, n, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    //MPI_Gather(solution, my_cols.size(), MPI_DOUBLE, x, my_cols.size(), MPI_DOUBLE, 0, MPI_COMM_WORLD);
     if(mode){
         for(size_t i = 0; i < my_cols.size(); i++){
             x_true[my_cols[i]] -= solution[i];
@@ -185,6 +180,9 @@ int main(int argc, char** argv) {
     if(rank == 0){
         std::cout<<t1<<' '<<t2<<' '<<t1+t2<<std::endl;
         std::cout<<norm(copy_b, b_b, n)<<std::endl;
+//        for(size_t i = 0; i < n; i++){
+//            std::cout<<x[i]<<'\n';
+//        }
         if(mode){
             double norm_x  = 0;
             for(size_t i = 0; i < n; i++){
